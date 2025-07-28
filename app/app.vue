@@ -21,7 +21,7 @@ useSeoMeta({
 html,
 body {
   margin: 0;
-  background: black;
+  background: transparent;
   color: white;
   font-family: 'Public Sans', sans-serif;
   text-align: center;
@@ -49,9 +49,8 @@ p {
   line-height: 1.5;
 }
 
-@media (min-width: 768px) {
-  .app {
-    padding: 1rem;
-  }
+.app {
+  height: 100vh;
+  width: 100vw;
 }
 </style>
