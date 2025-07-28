@@ -7,23 +7,43 @@ const teams = ref([
   { id: 4, name: 'Science', color: '#32CD32', score: 0, emoji: '🔬' }
 ])
 
+// WebSocket connection
+let ws: WebSocket | null = null
+
 // Connect to the websocket endpoint for real-time score updates
 const { data, open } = useWebSocket('/ws/leaderboard', { immediate: false })
 
 // When the data is received, we parse it as JSON and update the scores
 watch(data, async (newData) => {
   if (newData) {
-    const updatedScores = JSON.parse(typeof newData === 'string' ? newData : await newData.text())
-    teams.value = teams.value.map(team => {
-      const updatedTeam = updatedScores.find((t: any) => t.id === team.id)
-      return updatedTeam ? { ...team, score: updatedTeam.score } : team
-    })
+    try {
+      const updatedScores = JSON.parse(typeof newData === 'string' ? newData : await newData.text())
+      teams.value = teams.value.map(team => {
+        const updatedTeam = updatedScores.find((t: any) => t.id === team.id)
+        return updatedTeam ? { ...team, score: updatedTeam.score } : team
+      })
+    } catch (error) {
+      console.error('Error parsing WebSocket data:', error)
+    }
   }
 })
 
 // When the component is mounted, we connect to the websocket endpoint
 onMounted(() => {
   open()
+  
+  // Create a direct WebSocket connection for sending messages
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const wsUrl = `${protocol}//${window.location.host}/ws/leaderboard`
+  ws = new WebSocket(wsUrl)
+  
+  ws.onopen = () => {
+    console.log('WebSocket connected for sending messages')
+  }
+  
+  ws.onerror = (error) => {
+    console.error('WebSocket error:', error)
+  }
 })
 
 // Function to update team score
@@ -31,20 +51,30 @@ const updateScore = async (teamId: number, points: number) => {
   const team = teams.value.find(t => t.id === teamId)
   if (team) {
     team.score += points
+    
     // Send updated scores to server via WebSocket
-    try {
-      const { $ws } = useNuxtApp()
-      if ($ws && typeof ($ws as any).send === 'function') {
-        ($ws as any).send(JSON.stringify(teams.value))
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      try {
+        ws.send(JSON.stringify(teams.value))
+        console.log('Sent updated scores:', teams.value)
+      } catch (error) {
+        console.error('Error sending WebSocket message:', error)
       }
-    } catch (error) {
-      console.error('Error sending WebSocket message:', error)
+    } else {
+      console.error('WebSocket not connected')
     }
   }
 }
 
 // Quick add buttons
 const quickAddPoints = [1, 5, 10, 25, 50, 100]
+
+// Clean up WebSocket on component unmount
+onUnmounted(() => {
+  if (ws) {
+    ws.close()
+  }
+})
 </script>
 
 <template>

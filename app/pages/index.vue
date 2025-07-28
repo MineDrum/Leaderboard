@@ -13,11 +13,15 @@ const { data, open } = useWebSocket('/ws/leaderboard', { immediate: false })
 // When the data is received, we parse it as JSON and update the scores
 watch(data, async (newData) => {
   if (newData) {
-    const updatedScores = JSON.parse(typeof newData === 'string' ? newData : await newData.text())
-    teams.value = teams.value.map(team => {
-      const updatedTeam = updatedScores.find((t: any) => t.id === team.id)
-      return updatedTeam ? { ...team, score: updatedTeam.score } : team
-    })
+    try {
+      const updatedScores = JSON.parse(typeof newData === 'string' ? newData : await newData.text())
+      teams.value = teams.value.map(team => {
+        const updatedTeam = updatedScores.find((t: any) => t.id === team.id)
+        return updatedTeam ? { ...team, score: updatedTeam.score } : team
+      })
+    } catch (error) {
+      console.error('Error parsing WebSocket data:', error)
+    }
   }
 })
 
