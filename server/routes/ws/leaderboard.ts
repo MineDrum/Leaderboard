@@ -1,15 +1,20 @@
-import { teamScores, updateScores, getScores } from '../../utils/leaderboard-state'
+import { getScores, updateScores, initializeScores } from '../../utils/leaderboard-state'
 
 export default defineWebSocketHandler({
-  open(peer) {
+  async open(peer) {
     console.log('New WebSocket client connected')
+    
+    // Initialize scores if needed
+    await initializeScores()
+    
     // Send current scores to new client
     peer.subscribe('leaderboard')
-    peer.send(JSON.stringify(getScores()))
-    console.log('Sent initial scores to client:', getScores())
+    const currentScores = await getScores()
+    peer.send(JSON.stringify(currentScores))
+    console.log('Sent initial scores to client:', currentScores)
   },
   
-  message(peer, message) {
+  async message(peer, message) {
     try {
       console.log('Received WebSocket message:', message)
       // Parse incoming score updates
@@ -18,13 +23,13 @@ export default defineWebSocketHandler({
       
       console.log('Parsed updated scores:', updatedScores)
       
-      // Update the stored scores
-      updateScores(updatedScores)
+      // Update the stored scores in KV
+      await updateScores(updatedScores)
       
-      console.log('Updated stored scores:', getScores())
+      console.log('Updated stored scores in KV')
       
       // Broadcast updated scores to all connected clients
-      peer.publish('leaderboard', JSON.stringify(getScores()))
+      peer.publish('leaderboard', JSON.stringify(updatedScores))
       console.log('Broadcasted updated scores to all clients')
     } catch (error) {
       console.error('Error processing leaderboard message:', error)
