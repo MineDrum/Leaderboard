@@ -19,15 +19,45 @@ watch(data, async (newData) => {
         const updatedTeam = updatedScores.find((t: any) => t.id === team.id)
         return updatedTeam ? { ...team, score: updatedTeam.score } : team
       })
+      console.log('Scores updated via WebSocket:', teams.value)
     } catch (error) {
       console.error('Error parsing WebSocket data:', error)
     }
   }
 })
 
+// Load scores from API as fallback
+const loadScoresFromAPI = async () => {
+  try {
+    console.log('Loading scores from API as fallback...')
+    const response = await $fetch('/api/scores')
+    if (response && Array.isArray(response)) {
+      teams.value = teams.value.map(team => {
+        const apiTeam = response.find((t: any) => t.id === team.id)
+        return apiTeam ? { ...team, score: apiTeam.score } : team
+      })
+      console.log('Scores loaded from API:', teams.value)
+    }
+  } catch (error) {
+    console.error('Error loading scores from API:', error)
+  }
+}
+
 // When the component is mounted, we connect to the websocket endpoint
-onMounted(() => {
+onMounted(async () => {
+  // Load scores from API first
+  await loadScoresFromAPI()
+  
+  // Then connect to WebSocket
   open()
+  
+  // Set up a fallback timer in case WebSocket doesn't work
+  setTimeout(async () => {
+    if (teams.value.every(team => team.score === 0)) {
+      console.log('WebSocket may not have worked, trying API again...')
+      await loadScoresFromAPI()
+    }
+  }, 2000)
 })
 
 // Sort teams by score (highest first)
